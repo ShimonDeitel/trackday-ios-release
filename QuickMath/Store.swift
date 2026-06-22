@@ -1,12 +1,12 @@
 import Foundation
 import StoreKit
 
-/// StoreKit 2 — $0.99/month auto-renewable subscription (`threes_pro_monthly`).
+/// StoreKit 2 — $0.99/month auto-renewable subscription (`trackday_pro_monthly`).
 /// Pro is NEVER persisted as truth: it is derived live from `Transaction.currentEntitlements`,
 /// granted only on a `.verified` transaction with no revocation, and cleared in-session on refund.
 @MainActor
 final class Store: ObservableObject {
-    static let productID = "threes_pro_monthly"
+    static let productID = "trackday_pro_monthly"
 
     @Published private(set) var isPro = false
     @Published private(set) var product: Product?

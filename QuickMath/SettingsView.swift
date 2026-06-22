@@ -1,114 +1,105 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @EnvironmentObject var store: Store
     @EnvironmentObject var appModel: AppModel
+    @EnvironmentObject var store: Store
     @Environment(\.dismiss) private var dismiss
 
     @AppStorage("quickmath.theme") private var themeRaw = AppTheme.system.rawValue
-
     @State private var showPaywall = false
     @State private var showDeleteConfirm = false
 
-    private var theme: AppTheme {
-        get { AppTheme(rawValue: themeRaw) ?? .system }
-        nonmutating set { themeRaw = newValue.rawValue }
+    private var theme: Binding<String> {
+        Binding(
+            get: { themeRaw },
+            set: { themeRaw = $0 }
+        )
     }
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                QMBackground()
-                List {
-                    // Pro section
-                    Section("Threes Pro") {
-                        if store.isPro {
-                            Label("Pro Active", systemImage: "checkmark.seal.fill")
-                                .foregroundStyle(Color.qmAccent)
-                            if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
-                                Link(destination: url) {
-                                    Label("Manage Subscription", systemImage: "arrow.up.right")
-                                }
-                                .foregroundStyle(Color.qmAccent)
-                            }
-                        } else {
-                            Button {
-                                showPaywall = true
-                            } label: {
-                                Label("Unlock Threes Pro", systemImage: "lock.open.fill")
-                                    .foregroundStyle(Color.qmAccent)
-                            }
-                            Button {
-                                Task { await store.restore() }
-                            } label: {
-                                Label("Restore Purchase", systemImage: "arrow.clockwise")
-                                    .foregroundStyle(.secondary)
-                            }
+            Form {
+                // MARK: - Pro status
+                Section("Subscription") {
+                    if store.isPro {
+                        HStack {
+                            Image(systemName: "checkmark.seal.fill")
+                                .foregroundStyle(Color.qmCorrect)
+                            Text("Trackday Pro Active")
+                                .font(.headline)
                         }
-                    }
-
-                    // Appearance
-                    Section("Appearance") {
-                        Picker("Theme", selection: $themeRaw) {
-                            ForEach(AppTheme.allCases) { t in
-                                Text(t.label).tag(t.rawValue)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .listRowBackground(Color.clear)
-                    }
-
-                    // Legal
-                    Section("About") {
-                        if let url = URL(string: "https://shimondeitel.github.io/threes-site/privacy.html") {
-                            Link(destination: url) {
-                                Label("Privacy Policy", systemImage: "hand.raised")
-                            }
+                        Link("Manage Subscription",
+                             destination: URL(string: "https://apps.apple.com/account/subscriptions")!)
                             .foregroundStyle(Color.qmAccent)
-                        }
-                        if let url = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/") {
-                            Link(destination: url) {
-                                Label("Terms of Use", systemImage: "doc.text")
-                            }
-                            .foregroundStyle(Color.qmAccent)
-                        }
-                    }
-
-                    // Danger zone
-                    Section {
-                        Button(role: .destructive) {
-                            showDeleteConfirm = true
+                    } else {
+                        Button {
+                            Haptics.tap()
+                            showPaywall = true
                         } label: {
-                            Label("Delete All Data", systemImage: "trash")
+                            HStack {
+                                Image(systemName: "lock.open.fill")
+                                    .foregroundStyle(Color.qmAccent)
+                                Text("Upgrade to Pro")
+                            }
+                        }
+                        Button {
+                            Haptics.tap()
+                            Task { await store.restore() }
+                        } label: {
+                            Text("Restore Purchase")
+                                .foregroundStyle(Color.qmAccent)
                         }
                     }
                 }
-                .listStyle(.insetGrouped)
+
+                // MARK: - Appearance
+                Section("Appearance") {
+                    Picker("Theme", selection: theme) {
+                        ForEach(AppTheme.allCases) { t in
+                            Text(t.label).tag(t.rawValue)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
+                // MARK: - Legal
+                Section("Legal") {
+                    Link("Privacy Policy",
+                         destination: URL(string: "https://shimondeitel.github.io/trackday-site/privacy.html")!)
+                        .foregroundStyle(Color.qmAccent)
+                    Link("Terms of Use",
+                         destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
+                        .foregroundStyle(Color.qmAccent)
+                }
+
+                // MARK: - Danger zone
+                Section {
+                    Button(role: .destructive) {
+                        showDeleteConfirm = true
+                    } label: {
+                        Label("Delete All Data", systemImage: "trash")
+                    }
+                }
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
-                        .foregroundStyle(Color.qmAccent)
                 }
             }
             .sheet(isPresented: $showPaywall) {
                 PaywallView()
                     .environmentObject(store)
             }
-            .confirmationDialog(
-                "Delete all data?",
-                isPresented: $showDeleteConfirm,
-                titleVisibility: .visible
-            ) {
-                Button("Delete All", role: .destructive) {
+            .confirmationDialog("Delete all tracking data?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+                Button("Delete Everything", role: .destructive) {
                     appModel.deleteAllData()
-                    dismiss()
+                    Haptics.warning()
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("This will permanently erase your task history and streaks.")
+                Text("This will permanently remove all entries and categories.")
             }
         }
     }

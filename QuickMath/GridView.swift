@@ -1,153 +1,224 @@
 import SwiftUI
 
-/// The primary entry/action screen: shows today's three priority slots.
+// Primary tracking action screen — tap a category to switch to it.
 struct GridView: View {
     @EnvironmentObject var appModel: AppModel
     @EnvironmentObject var store: Store
 
-    @FocusState private var focusedSlot: Int?
+    @State private var showAddSheet = false
+    @State private var showProLimit = false
+    @State private var newCatName = ""
+    @State private var selectedColor = "#007AFF"
+    @State private var activeID: UUID? = nil
 
-    private var slots: [TaskSlot] {
-        (appModel.today?.slots ?? []).sorted { $0.order < $1.order }
-    }
+    private let colorOptions = [
+        "#007AFF", "#34C759", "#FF9500", "#FF3B30",
+        "#5856D6", "#FF2D55", "#AC8E68", "#636366"
+    ]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Header
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(dateLabel)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Text("Your three.")
-                        .font(.title2.weight(.bold))
-                }
+                Text("Categories")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
                 Spacer()
-                // Day result badge
-                if let today = appModel.today, today.hasAnyTitle {
-                    dayBadge(today: today)
+                Button {
+                    Haptics.tap()
+                    if appModel.canAddCategory {
+                        showAddSheet = true
+                    } else {
+                        showProLimit = true
+                    }
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .foregroundStyle(Color.qmAccent)
+                        .font(.title3)
                 }
             }
 
-            Divider()
-
-            // Three task slots
-            ForEach(Array(slots.enumerated()), id: \.element.id) { index, slot in
-                SlotRow(
-                    slot: slot,
-                    number: index + 1,
-                    isFocused: focusedSlot == index,
-                    onTitleChange: { newTitle in
-                        appModel.setTitle(newTitle, slot: slot)
-                    },
-                    onToggle: {
-                        appModel.toggleDone(slot)
+            if appModel.categories.isEmpty {
+                Text("Add a category to start tracking.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+            } else {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(appModel.categories) { cat in
+                        CategoryTile(
+                            category: cat,
+                            isActive: appModel.activeEntry?.categoryID == cat.id
+                        )
+                        .onTapGesture {
+                            Haptics.tap()
+                            appModel.startTracking(category: cat)
+                            withAnimation(.spring(duration: 0.3)) {
+                                activeID = cat.id
+                            }
+                        }
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                appModel.deleteCategory(cat)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
                     }
-                )
-                .focused($focusedSlot, equals: index)
-
-                if index < 2 {
-                    Divider().padding(.leading, 44)
                 }
             }
 
-            // Dismiss keyboard hint
-            if focusedSlot != nil {
-                HStack {
-                    Spacer()
-                    Button("Done") {
-                        focusedSlot = nil
-                    }
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Color.qmAccent)
+            // Stop tracking button
+            if appModel.activeEntry != nil {
+                Button {
+                    Haptics.warning()
+                    appModel.stopTracking()
+                } label: {
+                    Text("Stop Tracking")
+                        .frame(maxWidth: .infinity)
                 }
+                .softButton()
+                .padding(.top, 4)
             }
         }
         .qmCard()
-        .padding(.horizontal)
-    }
-
-    // MARK: - Helpers
-
-    private var dateLabel: String {
-        let fmt = DateFormatter()
-        fmt.dateStyle = .full
-        fmt.timeStyle = .none
-        return fmt.string(from: Date())
-    }
-
-    @ViewBuilder
-    private func dayBadge(today: DailyThree) -> some View {
-        let wins = today.winCount
-        Group {
-            if today.isPerfect {
-                Label("Won the day!", systemImage: "checkmark.seal.fill")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.qmCorrect)
-            } else if wins > 0 {
-                Text("\(wins) of 3")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-            } else {
-                Text("Get started")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+        .sheet(isPresented: $showAddSheet) {
+            AddCategorySheet(isPresented: $showAddSheet)
+                .environmentObject(appModel)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(Color.qmCard2, in: Capsule())
+        .alert("Upgrade to Pro", isPresented: $showProLimit) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Free tier supports up to 5 categories. Upgrade to Pro for unlimited.")
+        }
     }
 }
 
-// MARK: - SlotRow
+// MARK: - Category Tile
 
-private struct SlotRow: View {
-    let slot: TaskSlot
-    let number: Int
-    let isFocused: Bool
-    let onTitleChange: (String) -> Void
-    let onToggle: () -> Void
+struct CategoryTile: View {
+    let category: TrackedCategory
+    let isActive: Bool
 
-    @State private var localTitle: String = ""
+    @State private var elapsed: TimeInterval = 0
+    private let ticker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Number + check button
-            Button(action: onToggle) {
-                ZStack {
-                    Circle()
-                        .stroke(slot.done ? Color.qmAccent : Color.qmHair, lineWidth: 2)
-                        .frame(width: 32, height: 32)
-                    if slot.done {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(Color.qmAccent)
-                    } else {
-                        Text("\(number)")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                    }
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Circle()
+                    .fill(category.displayColor)
+                    .frame(width: 12, height: 12)
+                Spacer()
+                if isActive {
+                    Image(systemName: "record.circle")
+                        .foregroundStyle(Color.qmWrong)
+                        .font(.caption)
                 }
             }
-            .buttonStyle(.plain)
-            .disabled(slot.title.isEmpty)
-
-            // Title field
-            TextField("Priority \(number)", text: $localTitle, axis: .vertical)
-                .font(.body)
-                .lineLimit(1...3)
-                .strikethrough(slot.done, color: .secondary)
-                .foregroundStyle(slot.done ? .secondary : .primary)
-                .onAppear { localTitle = slot.title }
-                .onChange(of: localTitle) { _, newVal in
-                    onTitleChange(newVal)
-                }
-                .onChange(of: slot.title) { _, newVal in
-                    if newVal != localTitle { localTitle = newVal }
-                }
+            Text(category.name)
+                .font(.headline)
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+            if isActive {
+                Text(elapsedString())
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(Color.qmAccent)
+            } else {
+                Text("Tap to track")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
         }
-        .padding(.vertical, 4)
-        .contentShape(Rectangle())
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 90, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(isActive ? category.displayColor.opacity(0.12) : Color.qmCard)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(isActive ? category.displayColor : Color.clear, lineWidth: 2)
+                )
+        )
+        .onReceive(ticker) { _ in
+            if isActive {
+                elapsed += 1
+            }
+        }
+        .onAppear {
+            elapsed = 0
+        }
+    }
+
+    private func elapsedString() -> String {
+        let e = Int(elapsed)
+        let h = e / 3600, m = (e % 3600) / 60, s = e % 60
+        if h > 0 { return String(format: "%d:%02d:%02d", h, m, s) }
+        return String(format: "%d:%02d", m, s)
+    }
+}
+
+// MARK: - Add Category Sheet
+
+struct AddCategorySheet: View {
+    @Binding var isPresented: Bool
+    @EnvironmentObject var appModel: AppModel
+
+    @State private var name = ""
+    @State private var selectedColor = "#007AFF"
+
+    private let colorOptions = [
+        "#007AFF", "#34C759", "#FF9500", "#FF3B30",
+        "#5856D6", "#FF2D55", "#AC8E68", "#636366"
+    ]
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Name") {
+                    TextField("e.g. Deep Work", text: $name)
+                }
+                Section("Color") {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 12) {
+                        ForEach(colorOptions, id: \.self) { hex in
+                            ZStack {
+                                Circle()
+                                    .fill(Color(hex: hex))
+                                    .frame(width: 36, height: 36)
+                                if selectedColor == hex {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(.white)
+                                        .font(.caption.bold())
+                                }
+                            }
+                            .onTapGesture {
+                                Haptics.tap()
+                                selectedColor = hex
+                            }
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+            .navigationTitle("New Category")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        isPresented = false
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !trimmed.isEmpty else { return }
+                        appModel.addCategory(name: trimmed, colorTag: selectedColor)
+                        Haptics.success()
+                        isPresented = false
+                    }
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
     }
 }

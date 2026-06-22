@@ -9,7 +9,7 @@
       }
     ]
   },
-  "identifier": "LATTICE_STOREKIT_CONFIG",
+  "identifier": "TRACKDAY_STOREKIT_CONFIG",
   "nonRenewingSubscriptions": [],
   "products": [],
   "settings": {
@@ -18,9 +18,9 @@
   },
   "subscriptionGroups": [
     {
-      "id": "threes_pro_group",
+      "id": "trackday_pro_group",
       "localizations": [],
-      "name": "Threes Pro",
+      "name": "Trackday Pro",
       "subscriptions": [
         {
           "adHocOffers": [],
@@ -28,19 +28,19 @@
           "displayPrice": "0.99",
           "familyShareable": false,
           "groupNumber": 1,
-          "internalID": "threes_pro_monthly_id",
+          "internalID": "trackday_pro_monthly_id",
           "introductoryOffer": null,
           "localizations": [
             {
-              "description": "History, rollover suggestions & daily reminders.",
-              "displayName": "Threes Pro",
+              "description": "Weekly trends, unlimited categories & reminders.",
+              "displayName": "Trackday Pro",
               "locale": "en_US"
             }
           ],
-          "productID": "threes_pro_monthly",
+          "productID": "trackday_pro_monthly",
           "recurringSubscriptionPeriod": "P1M",
-          "referenceName": "Threes Pro Monthly",
-          "subscriptionGroupID": "threes_pro_group",
+          "referenceName": "Trackday Pro Monthly",
+          "subscriptionGroupID": "trackday_pro_group",
           "type": "RecurringSubscription"
         }
       ]
