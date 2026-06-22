@@ -1,0 +1,53 @@
+{
+  "appPolicies": {
+    "eula": "",
+    "policies": [
+      {
+        "locale": "en_US",
+        "policyText": "",
+        "policyURL": ""
+      }
+    ]
+  },
+  "identifier": "LATTICE_STOREKIT_CONFIG",
+  "nonRenewingSubscriptions": [],
+  "products": [],
+  "settings": {
+    "_failTransactionsEnabled": false,
+    "_storeKitErrors": []
+  },
+  "subscriptionGroups": [
+    {
+      "id": "threes_pro_group",
+      "localizations": [],
+      "name": "Threes Pro",
+      "subscriptions": [
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "0.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "threes_pro_monthly_id",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "History, rollover suggestions & daily reminders.",
+              "displayName": "Threes Pro",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "threes_pro_monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Threes Pro Monthly",
+          "subscriptionGroupID": "threes_pro_group",
+          "type": "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version": {
+    "major": 3,
+    "minor": 0
+  }
+}
